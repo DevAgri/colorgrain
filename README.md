@@ -18,3 +18,8 @@ baseando-se na coloração do grão.
     - Kotlin (Linguagem)
     - Android Studio (Ferramenta, IDE)
     - Gradle (Ferramenta, Build + Dependencies)
+
+
+## Licença
+
+O Projeto está sob licença [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)
