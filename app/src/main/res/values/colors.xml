@@ -3,4 +3,7 @@
     <color name="colorPrimary">#2e7d32</color>
     <color name="colorPrimaryDark">#2d4d2f</color>
     <color name="colorAccent">#763ba6</color>
+    <color name="sadio">#b5f4bb</color>
+    <color name="fermentado">#ffdaa9</color>
+    <color name="ardido">#ffab94</color>
 </resources>

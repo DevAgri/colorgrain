@@ -28,6 +28,8 @@ class MainActivity : AppCompatActivity() {
     private val textSaturation by lazy { find<TextView>(R.id.tv_saturation) }
     private val textValue by lazy { find<TextView>(R.id.tv_value) }
     private val seekZoom by lazy { find<SeekBar>(R.id.sb_zoom) }
+    private val seekSugestao by lazy { find<SeekBar>(R.id.sb_amostra) }
+
 
     private val CHECK_CAMERA_PERMISSION = 111
 
@@ -35,6 +37,7 @@ class MainActivity : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        seekSugestao.max = 300
 
         try {
             mCamera = Camera.open()//you can use open(int) to use different cameras
@@ -137,7 +140,43 @@ class MainActivity : AppCompatActivity() {
 
     private fun showValues(h: Float, s: Float, v: Float) {
 
-        textHue.text = "HUE: ${h.toInt()}"
+        val minArdido = 40f
+        val maxArdido = 44.99f
+
+        val minFermentado = 45f
+        val maxFermentado = 52.99f
+
+        val minSadio = 53f
+        val maxSadio = 59f
+
+        var value = h;
+    var progress = 0f
+
+
+        if(value < maxArdido){
+
+            value = Math.max(value, minArdido)
+
+            var ardidoRange = (maxArdido - minArdido);
+            progress = (value - minArdido) / ardidoRange;
+
+        }else if( value < maxFermentado){
+
+            var fermentadoRange = (maxFermentado - minFermentado);
+            progress = (value - minFermentado) / fermentadoRange;
+            progress += 1;
+        }else {
+            value = Math.min(value, maxSadio)
+            var sadioRange = (maxSadio - minSadio);
+
+            progress = (value - minSadio) / sadioRange;
+            progress += 2;
+
+
+        }
+        seekSugestao.progress = Math.round( progress * 100)
+
+        textHue.text = "${h.toInt()}"
         textSaturation.text = "SAT.: ${(s * 100).toInt()}%"
         textValue.text = "VAL.:  ${(v * 100).toInt()}%"
 
