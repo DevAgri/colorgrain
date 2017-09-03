@@ -1,4 +1,4 @@
-### Color Grain
+# Color Grain
 
 ## Intregrantes
 
