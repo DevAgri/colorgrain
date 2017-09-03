@@ -20,21 +20,32 @@ import android.graphics.YuvImage
 import java.io.ByteArrayOutputStream
 import android.opengl.ETC1.getHeight
 import android.opengl.ETC1.getWidth
+import android.widget.SeekBar
+import android.R.attr.data
 
 
 /**
  * Created by luan on 03/09/17.
  */
-class CameraView(context: Context, camera: Camera, val callback: (Float, Float, Float) -> Unit) : SurfaceView(context), SurfaceHolder.Callback, Camera.PreviewCallback {
+class CameraView(context: Context, camera: Camera, val callback: (Float, Float, Float) -> Unit, val zoomCallback: (Int, Boolean) -> Unit) : SurfaceView(context), SurfaceHolder.Callback, Camera.PreviewCallback {
+
+
+    protected val POINTER_RADIUS = 5
+
     override fun surfaceChanged(p0: SurfaceHolder?, p1: Int, p2: Int, p3: Int) {
         try {
             //when the surface is created, we can set the camera to draw images in this surfaceholder
             mCamera.setPreviewDisplay(mHolder)
             mCamera.setPreviewCallback(this)
+            mCamera.setZoomChangeListener { i, b, camera ->
+
+                zoomCallback(i, b)
+
+            }
             mCamera.startPreview()
             if (mCamera != null) {
                 val params = mCamera.parameters
-                params.flashMode = Camera.Parameters.FLASH_MODE_TORCH
+                params.flashMode = Camera.Parameters.FLASH_MODE_AUTO
                 params.focusMode = Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE;
 
                 mCamera.parameters = params
@@ -45,6 +56,8 @@ class CameraView(context: Context, camera: Camera, val callback: (Float, Float, 
         }
 
     }
+
+    val maxZoom get() = mCamera.parameters.maxZoom
 
     override fun surfaceDestroyed(p0: SurfaceHolder?) {
         //our app has only one screen, so we'll destroy the camera in the surface
@@ -121,23 +134,14 @@ class CameraView(context: Context, camera: Camera, val callback: (Float, Float, 
 
 
         if (lastTouched != touched) {
-            updateTouched()
+
 
         }
 
         return true
     }
 
-    private fun updateTouched() {
 
-
-        if (touched) {
-
-            takePicture()
-
-        }
-
-    }
 
     override fun onPreviewFrame(data: ByteArray?, p1: Camera?) {
 
@@ -157,7 +161,7 @@ class CameraView(context: Context, camera: Camera, val callback: (Float, Float, 
                 val bmp = cropBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
 
 
-                processImage(bmp, 100, 100)
+                processImage(  bmp, 100, 100)
 
             } catch (e: Exception) {
                 Log.d("a", e.message)
@@ -166,23 +170,92 @@ class CameraView(context: Context, camera: Camera, val callback: (Float, Float, 
 
     }
 
-    private fun processImage(bmp: Bitmap, width: Int, height: Int) {
 
-        var centerX = width / 2
-        var centerY = height / 2
+    private fun getPixels(  bmp: Bitmap, centroX: Int, centroY: Int, razaoX: Int, razaoY: Int, quantidade: Int): List<FloatArray> {
+
+        val pixels = mutableListOf<FloatArray>()
+
+        for (i in 0..quantidade) {
+
+            val centerPixel =  bmp.getPixel(centroX + (i * razaoX), centroY + (i * razaoY))
+
+            val redPixel = Color.red(centerPixel)
+            val bluePixel = Color.blue(centerPixel)
+            val greenPixel = Color.green(centerPixel)
+
+            val hsv = FloatArray(3)
+            Color.RGBToHSV(redPixel, greenPixel, bluePixel, hsv)
 
 
-        var centerPixel =  bmp.getPixel(centerX, centerY)
+            pixels.add(hsv)
+        }
 
-        var redPixel = Color.red(centerPixel)
-        var bluePixel = Color.blue(centerPixel)
-        var greenPixel = Color.green(centerPixel)
+
+        return pixels
+
+    }
+
+    val lastItems = mutableListOf<FloatArray>()
+
+    private fun processImage( bmp: Bitmap, width: Int, height: Int) {
+
+        val centerX = width / 2
+        val centerY = height / 2
+
+
+        val centerPixel = bmp.getPixel(centerX, centerY)
+
+        val redPixel = Color.red(centerPixel)
+        val bluePixel = Color.blue(centerPixel)
+        val greenPixel = Color.green(centerPixel)
 
 
         val hsv = FloatArray(3)
-        Color.RGBToHSV(redPixel,  greenPixel, bluePixel, hsv)
+        Color.RGBToHSV(redPixel, greenPixel, bluePixel, hsv)
 
-        callback(hsv[0], hsv[1], hsv[2])
+
+        val pixels = mutableListOf(hsv)
+
+        pixels.addAll(getPixels(bmp, centerX, centerY, -1, -1, 5))
+        pixels.addAll(getPixels(bmp, centerX, centerY, 0, -1, 5))
+        pixels.addAll(getPixels(bmp, centerX, centerY, 1, -1, 5))
+        pixels.addAll(getPixels(bmp, centerX, centerY, 1, 0, 5))
+        pixels.addAll(getPixels(bmp, centerX, centerY, 1, 1, 5))
+        pixels.addAll(getPixels(bmp, centerX, centerY, 0, 1, 5))
+        pixels.addAll(getPixels(bmp, centerX, centerY, -1, 1, 5))
+        pixels.addAll(getPixels(bmp, centerX, centerY, -1, 0, 5))
+
+        val avg = makeAvg(pixels)
+
+
+        lastItems.add(avg)
+
+        if (lastItems.size >= 7) {
+            val newAvg = makeAvg(lastItems)
+            lastItems.clear()
+            callback(newAvg[0], newAvg[1], newAvg[2])
+
+        }
+    }
+
+    private fun makeAvg(pixels: MutableList<FloatArray>): FloatArray {
+
+        val avgHSV = FloatArray(3)
+
+
+        pixels.forEach { hsv ->
+            avgHSV[0] += hsv[0]
+            avgHSV[1] += hsv[1]
+            avgHSV[2] += hsv[2]
+        }
+
+        avgHSV[0] = avgHSV[0] / pixels.size.toFloat()
+        avgHSV[1] = avgHSV[1] / pixels.size.toFloat()
+        avgHSV[2] = avgHSV[2] / pixels.size.toFloat()
+
+
+        return avgHSV
+
 
     }
 
@@ -204,16 +277,45 @@ class CameraView(context: Context, camera: Camera, val callback: (Float, Float, 
         return croppedBitmap
     }
 
-    private fun takePicture() {
-
-
-    }
 
     fun getImage(): Bitmap {
         val b = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
         val c = Canvas(b)
         draw(c)
         return b
+    }
+
+    fun setZoom(value: Int) {
+
+
+        val params = mCamera.parameters
+        params.zoom = value;
+        mCamera.parameters = params;
+
+    }
+
+    fun changeCamera(show: (String) -> Unit) {
+
+        val params = mCamera.parameters
+        if (params.flashMode == Camera.Parameters.FLASH_MODE_AUTO) {
+
+
+            params.flashMode = Camera.Parameters.FLASH_MODE_OFF
+            show("Desligado")
+        } else if (params.flashMode == Camera.Parameters.FLASH_MODE_OFF) {
+
+            params.flashMode = Camera.Parameters.FLASH_MODE_TORCH
+            show("LIGADO")
+
+        } else {
+
+            params.flashMode = Camera.Parameters.FLASH_MODE_AUTO
+            show("Automatico")
+
+        }
+
+        mCamera.parameters = params;
+
     }
 
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/action_rotate"
+        android:icon="@drawable/ic_rotate_left_white_24dp"
+        android:title="Rotate"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_flashlight"
+        android:icon="@drawable/ic_flashlight_white_24dp"
+        android:title="Flash"
+        app:showAsAction="always" />
+</menu>

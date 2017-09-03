@@ -8,24 +8,26 @@ import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
-import android.widget.FrameLayout
-import android.widget.ImageButton
-import android.widget.ImageView
-import android.widget.TextView
+import android.widget.*
 
 import com.colorgrain.dev.colorgrain.views.CameraView
 import org.jetbrains.anko.find
 import org.jetbrains.anko.sdk25.coroutines.onClick
+import org.jetbrains.anko.toast
 
 class MainActivity : AppCompatActivity() {
 
     private var mCamera: Camera? = null
     private var mCameraView: CameraView? = null
 
-    private val textHue by lazy { find<TextView>(R.id.tv_hue)}
-    private val textSaturation by lazy { find<TextView>(R.id.tv_saturation)}
-    private val textValue by lazy { find<TextView>(R.id.tv_value)}
+    private val mainFrame by lazy { find<FrameLayout>(R.id.main_frame) }
+    private val textHue by lazy { find<TextView>(R.id.tv_hue) }
+    private val textSaturation by lazy { find<TextView>(R.id.tv_saturation) }
+    private val textValue by lazy { find<TextView>(R.id.tv_value) }
+    private val seekZoom by lazy { find<SeekBar>(R.id.sb_zoom) }
 
     private val CHECK_CAMERA_PERMISSION = 111
 
@@ -36,18 +38,51 @@ class MainActivity : AppCompatActivity() {
 
         try {
             mCamera = Camera.open()//you can use open(int) to use different cameras
+
+
         } catch (e: Exception) {
             Log.d("ERROR", "Failed to get camera: " + e.message)
         }
 
         if (mCamera != null) {
-            mCameraView = CameraView(this, mCamera!!, { h, s, v -> showValues(h, s, v) })//create a SurfaceView to show camera data
+            mCameraView = CameraView(this, mCamera!!, { h, s, v ->
+                showValues(h, s, v)
+            }, { value, stopped ->
+                changeZoom(value, stopped)
+            })
+
+
+            seekZoom.max = mCameraView?.maxZoom ?: 1
+
+            //create a SurfaceView to show camera data
             mCameraView?.imageView = find<ImageView>(R.id.img_view)
             val camera_view = findViewById(R.id.camera_view) as FrameLayout
             camera_view.addView(mCameraView)//add the SurfaceView to the layout
 
 
         }
+
+
+
+        seekZoom.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
+
+                if (updatingZoom) return
+
+                mCameraView?.setZoom(p1)
+
+            }
+
+            override fun onStartTrackingTouch(p0: SeekBar?) {
+
+            }
+
+            override fun onStopTrackingTouch(p0: SeekBar?) {
+
+            }
+
+
+        })
 
         //btn to close the application
         val imgClose = findViewById(R.id.imgClose) as ImageButton
@@ -56,11 +91,55 @@ class MainActivity : AppCompatActivity() {
         askForPermission()
     }
 
+
+    override   fun onCreateOptionsMenu(menu: Menu?): Boolean {
+
+        menuInflater.inflate(R.menu.main_menu, menu)
+
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
+        if(item != null) {
+            if (item?.itemId == R.id.action_rotate) {
+
+                if(mainFrame.rotation == 0f){
+                    mainFrame.rotation = 180f
+                }else{
+                    mainFrame.rotation = 0f
+                }
+            }
+
+
+            if(item?.itemId == R.id.action_flashlight){
+
+                mCameraView?.changeCamera({ message ->
+                    toast(message)
+                })
+
+            }
+        }
+        return super.onOptionsItemSelected(item)
+    }
+
+    private var updatingZoom: Boolean = false
+
+    private fun changeZoom(value: Int, stopped: Boolean) {
+
+
+        if(stopped) {
+            updatingZoom = true
+
+            seekZoom.progress = value
+            updatingZoom = false
+        }
+    }
+
     private fun showValues(h: Float, s: Float, v: Float) {
 
-        textHue.text = "HUE: $h"
-        textSaturation.text = "SAT.: $s"
-        textValue.text = "VAL.: $v"
+        textHue.text = "HUE: ${h.toInt()}"
+        textSaturation.text = "SAT.: ${(s * 100).toInt()}%"
+        textValue.text = "VAL.:  ${(v * 100).toInt()}%"
 
 
     }
